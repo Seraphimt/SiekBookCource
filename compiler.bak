@@ -204,12 +204,11 @@
 
 (define (select-stm e)
   (match e
-    [(Assign var (Prim '+ (list l r)))   (list (Instr 'movq (list (select-atom l) var)) (Instr 'addq (list var (select-atom r))))]
-    [(Assign var (Prim '- (list l r)))   (list (Instr 'movq (list (select-atom l) var)) (Instr 'subq (list var (select-atom r))))]
-    [(Assign var (Prim '- (list unary))) (list (Instr 'negq (list (select-atom unary) var)))]     
-
-    [(Assign var (Var x)) (list (Instr 'movq (list var x)))]
-    [(Assign var (Int n)) (list (Instr 'movq (list var n)))]  
+    [(Assign var (Prim '+ (list l r))) (list (Instr 'movq (list (select-atom l) var)) (Instr 'addq (list var (select-atom r))))]
+         
+        
+    
+  ;  [(Int n) (Imm n)]
     
     [else (error "select-stm unhndled case" e)]
    ))
@@ -221,14 +220,13 @@
     )
 )
 
+
 (define (select-instructions p)
  (match p
     [(CProgram info body) (X86Program '() (list (cons 'main (Block '() (select-tail (dict-ref body 'start))))))]))
 
 ;(explicate-control (parse-program '(program () (+ 12 42))))
 (select-instructions(explicate-control (parse-program '(program () (+ 12 42)))))
-;(select-instructions(explicate-control (parse-program '(program () (+ 12 42)))))
-
 
 
 ;; assign-homes : x86var -> x86var
