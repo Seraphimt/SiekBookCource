@@ -204,36 +204,57 @@
 
 (define (select-stm e)
   (match e
-    [(Assign var (Prim '+ (list l r)))   (list (Instr 'movq (list (select-atom l) var)) (Instr 'addq (list var (select-atom r))))]
-    [(Assign var (Prim '- (list l r)))   (list (Instr 'movq (list (select-atom l) var)) (Instr 'subq (list var (select-atom r))))]
-    [(Assign var (Prim '- (list unary))) (list (Instr 'negq (list (select-atom unary) var)))]     
+    [(Assign var (Prim '+ (list l r)))   (list (Instr 'movq (list (select-atom l) var)) (Instr 'addq (list (select-atom r) var)))]
+    [(Assign var (Prim '- (list l r)))   (list (Instr 'movq (list (select-atom l) var)) (Instr 'subq (list (select-atom r) var)))]
+    [(Assign var (Prim '- (list unary))) (list (Instr 'movq (list (select-atom unary) var)) (Instr 'negq (list var)))]     
 
-    [(Assign var (Var x)) (list (Instr 'movq (list var x)))]
-    [(Assign var (Int n)) (list (Instr 'movq (list var n)))]  
+    [(Assign var (Prim 'read '())) (list (Instr 'callq (list 'read_int)) (Instr 'movq (list (Reg 'rax) var)))]
     
-    [else (error "select-stm unhndled case" e)]
+    [(Assign var (Var x)) (list (Instr 'movq (list x var)))]
+    [(Assign var (Int n)) (list (Instr 'movq (list (Imm n) var)))]
+    
+    
+    [else (error "select-stm unhandled case" e)]
    ))
 
 (define (select-tail p)
   (match p
     [(Seq stm tail) (append (select-stm stm) (select-tail tail))]
-    [(Return expr)  (list (Instr 'movq (list '%rax (select-atom expr))))] ; goto epilog
+    [(Return expr)  (list (Instr 'movq (list (select-atom expr) (Reg 'rax))))] ; goto epilog
     )
 )
 
 (define (select-instructions p)
  (match p
-    [(CProgram info body) (X86Program '() (list (cons 'main (Block '() (select-tail (dict-ref body 'start))))))]))
+    [(CProgram info body) (X86Program info (list (cons 'start (Block '() (select-tail (dict-ref body 'start))))))]))
 
 ;(explicate-control (parse-program '(program () (+ 12 42))))
-(select-instructions(explicate-control (parse-program '(program () (+ 12 42)))))
+;(select-instructions(explicate-control (parse-program '(program () 42))))
 ;(select-instructions(explicate-control (parse-program '(program () (+ 12 42)))))
-
+;(select-instructions(explicate-control (parse-program '(program () (- 11331)))))
+;(select-instructions(explicate-control (parse-program '(program () (read)))))
 
 
 ;; assign-homes : x86var -> x86var
+
+(define (assign-homes-impl e local)
+  (match e
+  [(Instr name args) (Instr name (for/list ([arg args]) (assign-homes-impl arg local)))]
+
+  [(Var x) (dict-ref local x)]  
+  [(Imm n) (Imm n)]
+  [(Reg r) (Reg r)] 
+  [else (error "assign-homes unhandled case" e)]
+   )
+)
+
+
 (define (assign-homes p)
-  (error "TODO: code goes here (assign-homes)"))
+   (match p
+    [(X86Program info body) (X86Program info (list (cons 'start (Block '() (select-tail (dict-ref body 'start))))))]))
+
+
+
 
 ;; patch-instructions : x86var -> x86int
 (define (patch-instructions p)
@@ -252,7 +273,7 @@
       ("uniquify" ,uniquify ,interp_Lvar ,type-check-Lvar)
       ("remove complex operand" ,remove-complex-operand ,interp_Lvar ,type-check-Lvar)
       ("explicate control" ,explicate-control ,interp-Cvar ,type-check-Cvar)
-     ;; ("instruction selection" ,select-instructions ,interp-pseudo-x86-0)
+      ("instruction selection" ,select-instructions ,interp-pseudo-x86-0)
      ;; ("assign homes" ,assign-homes ,interp-x86-0)
      ;; ("patch instructions" ,patch-instructions ,interp-x86-0)
      ;; ("prelude-and-conclusion" ,prelude-and-conclusion ,interp-x86-0)
