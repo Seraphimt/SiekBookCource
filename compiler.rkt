@@ -236,25 +236,59 @@
 
 
 ;; assign-homes : x86var -> x86var
+(define (calc-stack-size n)
+   (if (equal? (remainder n 16) 0)
+       n
+       (* (+ (quotient n 16) 1) 16)
+))
 
-(define (assign-homes-impl e local)
+(define (type-size type)
+  (match type
+    [Integer 8]
+    [else (error "wrong type" type)]  
+   )
+ )
+;;alist =  ((x Integer) (y Integer) ...)
+;;result = ((x -8) (y -16) ...) ; . stack_size
+(define (add-var-to-storage alist n)
+  (if (empty? alist)
+      (list* (cons 'stack-size (calc-stack-size (- (+ n 8)))) '())
+      (let* ([var  (car (car alist))]
+             [type (cdr (car alist))])
+        (list* (cons var n) (add-var-to-storage (cdr alist) (- n (type-size type))))
+      ))
+)
+(define local (list (cons 'x 'Integer) (cons 'y 'Integer) (cons 'z 'Integer)))
+(add-var-to-storage local -8)
+;Output: '((x . -8) (y . -16) (z . -24))
+
+(define (create-local info)
+  (add-var-to-storage (dict-ref info 'locals-types) -8))
+
+(define (assign-homes-impl e info var-storage)
   (match e
-  [(Instr name args) (Instr name (for/list ([arg args]) (assign-homes-impl arg local)))]
+  [(Instr name args) (Instr name (for/list ([arg args]) (assign-homes-impl arg info var-storage)))]
 
-  [(Var x) (dict-ref local x)]  
+  [(Var x) (Deref 'rbp (dict-ref var-storage x))]
+                  
   [(Imm n) (Imm n)]
   [(Reg r) (Reg r)] 
   [else (error "assign-homes unhandled case" e)]
-   )
+  )
 )
-
 
 (define (assign-homes p)
    (match p
-    [(X86Program info body) (X86Program info (list (cons 'start (Block '() (select-tail (dict-ref body 'start))))))]))
+    [(X86Program info body)
+     (X86Program info (list
+                       (cons 'start
+                             (Block '()
+                                    (for/list ([instract (Block-instr* (dict-ref body 'start))])
+                                      (assign-homes-impl instract info (create-local info)) )))))]
+ ))
 
-
-
+;(assign-homes(select-instructions(explicate-control (parse-program '(program () 42)))))
+;(X86Program '() (list (cons 'start (Block '() (list (Instr 'movq (list (Imm 42) (Reg 'rax))))))))
 
 ;; patch-instructions : x86var -> x86int
 (define (patch-instructions p)
@@ -274,7 +308,29 @@
       ("remove complex operand" ,remove-complex-operand ,interp_Lvar ,type-check-Lvar)
       ("explicate control" ,explicate-control ,interp-Cvar ,type-check-Cvar)
       ("instruction selection" ,select-instructions ,interp-pseudo-x86-0)
-     ;; ("assign homes" ,assign-homes ,interp-x86-0)
+      ("assign homes" ,assign-homes ,interp-x86-0)
      ;; ("patch instructions" ,patch-instructions ,interp-x86-0)
      ;; ("prelude-and-conclusion" ,prelude-and-conclusion ,interp-x86-0)
      ))
+
+
+
+(debug-level 1)
+(AST-output-syntax 'concrete-syntax)
+
+(define all-tests
+  (map (lambda (p) (car (string-split (path->string p) ".")))
+       (filter (lambda (p)
+                 (string=? (cadr (string-split (path->string p) ".")) "rkt"))
+               (directory-list (build-path (current-directory) "tests")))))
+
+(define (tests-for r)
+  (map (lambda (p)
+         (caddr (string-split p "_")))
+       (filter
+        (lambda (p)
+          (string=? r (car (string-split p "_"))))
+        all-tests)))
+
+;; The following tests the intermediate-language outputs of the passes.
+(interp-tests "var_test" #f compiler-passes interp_Lvar "var_test" (tests-for "var"))
