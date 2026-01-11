@@ -202,9 +202,18 @@
     [else (error "select-atom unhndled case" expr)]
    ))
 
+(define (create-add-instr var l r)
+(let* ([atom-l (select-atom l)]
+       [atom-r (select-atom r)])
+  (cond
+    [(equal? var atom-l) (list (Instr 'addq (list atom-r var)))]
+    [(equal? var atom-r) (list (Instr 'addq (list atom-l var)))]    
+    [else (list (Instr 'movq (list atom-l var)) (Instr 'addq (list atom-r var)))]
+   )))
+
 (define (select-stm e)
   (match e
-    [(Assign var (Prim '+ (list l r)))   (list (Instr 'movq (list (select-atom l) var)) (Instr 'addq (list (select-atom r) var)))]
+    [(Assign var (Prim '+ (list l r)))   (create-add-instr var l r)]
     [(Assign var (Prim '- (list l r)))   (list (Instr 'movq (list (select-atom l) var)) (Instr 'subq (list (select-atom r) var)))]
     [(Assign var (Prim '- (list unary))) (list (Instr 'movq (list (select-atom unary) var)) (Instr 'negq (list var)))]     
 
@@ -258,6 +267,7 @@
         (list* (cons var n) (add-var-to-storage (cdr alist) (- n (type-size type))))
       ))
 )
+
 (define local (list (cons 'x 'Integer) (cons 'y 'Integer) (cons 'z 'Integer)))
 (add-var-to-storage local -8)
 ;Output: '((x . -8) (y . -16) (z . -24))
@@ -280,11 +290,13 @@
 (define (assign-homes p)
    (match p
     [(X86Program info body)
-     (X86Program info (list
-                       (cons 'start
-                             (Block '()
-                                    (for/list ([instract (Block-instr* (dict-ref body 'start))])
-                                      (assign-homes-impl instract info (create-local info)) )))))]
+     (let ([local-list (create-local info)]) 
+       (X86Program (dict-set info 'stack-space (dict-ref local-list 'stack-size))
+                   (list
+                        (cons 'start
+                              (Block '()
+                                     (for/list ([instract (Block-instr* (dict-ref body 'start))])
+                                      (assign-homes-impl instract info local-list) ))))))]
  ))
 
 ;; patch-instructions : x86var -> x86int
@@ -311,22 +323,49 @@
  ))
 
 ;; prelude-and-conclusion : x86int -> x86int
+(define (create-main info)
+  (list
+     (Instr 'pushq (list (Reg 'rbp)))
+     (Instr 'movq  (list (Reg 'rsp) (Reg 'rbp)))
+     (Instr 'subq  (list (Imm (dict-ref info 'stack-space)) (Reg 'rsp)))
+     (Instr 'jmp   (list 'start))
+   )
+ )
+
+(define (create-conclusion info)
+  (list
+     (Instr 'addq  (list (Imm (dict-ref info 'stack-space)) (Reg 'rsp)))
+     (Instr 'popq  (list (Reg 'rbp)))
+     (Instr 'retq  '())
+   )
+ )
+
 (define (prelude-and-conclusion p)
-  (error "TODO: code goes here (prelude-and-conclusion)"))
+(match p
+    [(X86Program info body)
+     (X86Program info
+                 (list
+                   (cons 'start
+                         (dict-ref body 'start))
+                   (cons 'main
+                        (Block '() (create-main info)))
+                   (cons 'conclusion
+                        (Block '() (create-conclusion info)))
+                  ))]))
+
 
 ;; Define the compiler passes to be used by interp-tests and the grader
 ;; Note that your compiler file (the file that defines the passes)
 ;; must be named "compiler.rkt"
 (define compiler-passes
   `(
-     ;; Uncomment the following passes as you finish them.
       ("uniquify" ,uniquify ,interp_Lvar ,type-check-Lvar)
       ("remove complex operand" ,remove-complex-operand ,interp_Lvar ,type-check-Lvar)
       ("explicate control" ,explicate-control ,interp-Cvar ,type-check-Cvar)
       ("instruction selection" ,select-instructions ,interp-pseudo-x86-0)
       ("assign homes" ,assign-homes ,interp-x86-0)
       ("patch instructions" ,patch-instructions ,interp-x86-0)
-     ;; ("prelude-and-conclusion" ,prelude-and-conclusion ,interp-x86-0)
+      ("prelude-and-conclusion" ,prelude-and-conclusion ,interp-x86-0)
      ))
 
 
