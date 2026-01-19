@@ -217,7 +217,7 @@
     [(Assign var (Prim '- (list l r)))   (list (Instr 'movq (list (select-atom l) var)) (Instr 'subq (list (select-atom r) var)))]
     [(Assign var (Prim '- (list unary))) (list (Instr 'movq (list (select-atom unary) var)) (Instr 'negq (list var)))]     
 
-    [(Assign var (Prim 'read '())) (list (Instr 'callq (list 'read_int)) (Instr 'movq (list (Reg 'rax) var)))]
+    [(Assign var (Prim 'read '())) (list (Callq 'read_int 0) (Instr 'movq (list (Reg 'rax) var)))]
     
     [(Assign var (Var x)) (list (Instr 'movq (list x var)))]
     [(Assign var (Int n)) (list (Instr 'movq (list (Imm n) var)))]
@@ -229,7 +229,7 @@
 (define (select-tail p)
   (match p
     [(Seq stm tail) (append (select-stm stm) (select-tail tail))]
-    [(Return expr)  (list (Instr 'movq (list (select-atom expr) (Reg 'rax))))] ; goto epilog
+    [(Return expr)  (list (Instr 'movq (list (select-atom expr) (Reg 'rax))) (Jmp 'conclusion))] ; goto epilog ?  (Instr 'jmp (list 'conclusion))
     )
 )
 
@@ -282,7 +282,9 @@
   [(Var x) (Deref 'rbp (dict-ref var-storage x))]
                   
   [(Imm n) (Imm n)]
-  [(Reg r) (Reg r)] 
+  [(Reg r) (Reg r)]
+  [(Jmp j) (Jmp j)]
+  [(Callq name arity) (Callq name arity)]   
   [else (error "assign-homes unhandled case" e)]
   )
 )
@@ -328,7 +330,7 @@
      (Instr 'pushq (list (Reg 'rbp)))
      (Instr 'movq  (list (Reg 'rsp) (Reg 'rbp)))
      (Instr 'subq  (list (Imm (dict-ref info 'stack-space)) (Reg 'rsp)))
-     (Instr 'jmp   (list 'start))
+     (Jmp 'start)
    )
  )
 
@@ -336,9 +338,14 @@
   (list
      (Instr 'addq  (list (Imm (dict-ref info 'stack-space)) (Reg 'rsp)))
      (Instr 'popq  (list (Reg 'rbp)))
-     (Instr 'retq  '())
+     (Retq)
    )
  )
+
+(define (create-start instrs) instrs
+  (append 
+     instrs
+     (list (Jmp 'conclusion))))
 
 (define (prelude-and-conclusion p)
 (match p
@@ -346,13 +353,12 @@
      (X86Program info
                  (list
                    (cons 'start
-                         (dict-ref body 'start))
+                        (Block '() (Block-instr* (dict-ref body 'start))))
                    (cons 'main
                         (Block '() (create-main info)))
                    (cons 'conclusion
                         (Block '() (create-conclusion info)))
                   ))]))
-
 
 ;; Define the compiler passes to be used by interp-tests and the grader
 ;; Note that your compiler file (the file that defines the passes)
@@ -368,7 +374,7 @@
       ("prelude-and-conclusion" ,prelude-and-conclusion ,interp-x86-0)
      ))
 
-
+;(print-x86
 
 (debug-level 1)
 (AST-output-syntax 'concrete-syntax)
