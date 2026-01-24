@@ -43,10 +43,12 @@
 (define (pe-exp e)
   (match e
     [(Int n) (Int n)]
+    [(Var x) (Var x)]
     [(Prim 'read '()) (Prim 'read '())]
     [(Prim '- (list e1)) (pe-neg (pe-exp e1))]
     [(Prim '+ (list e1 e2)) (pe-add (pe-exp e1) (pe-exp e2))]
     [(Prim '- (list e1 e2)) (pe-add (pe-exp e1) (pe-neg (pe-exp e2)))]
+    [(Let x expr body) (Let x (pe-exp expr) (pe-exp body))]
     ))
 
 (define (pe-Lint p)
@@ -217,7 +219,7 @@
     [(Assign var (Prim '- (list l r)))   (list (Instr 'movq (list (select-atom l) var)) (Instr 'subq (list (select-atom r) var)))]
     [(Assign var (Prim '- (list unary))) (list (Instr 'movq (list (select-atom unary) var)) (Instr 'negq (list var)))]     
 
-    [(Assign var (Prim 'read '())) (list (Instr 'callq (list 'read_int)) (Instr 'movq (list (Reg 'rax) var)))]
+    [(Assign var (Prim 'read '())) (list (Callq 'read_int 0) (Instr 'movq (list (Reg 'rax) var)))]
     
     [(Assign var (Var x)) (list (Instr 'movq (list x var)))]
     [(Assign var (Int n)) (list (Instr 'movq (list (Imm n) var)))]
@@ -229,7 +231,7 @@
 (define (select-tail p)
   (match p
     [(Seq stm tail) (append (select-stm stm) (select-tail tail))]
-    [(Return expr)  (list (Instr 'movq (list (select-atom expr) (Reg 'rax))))] ; goto epilog
+    [(Return expr)  (list (Instr 'movq (list (select-atom expr) (Reg 'rax))) (Jmp 'conclusion))] ; goto epilog ?  (Instr 'jmp (list 'conclusion))
     )
 )
 
@@ -282,7 +284,9 @@
   [(Var x) (Deref 'rbp (dict-ref var-storage x))]
                   
   [(Imm n) (Imm n)]
-  [(Reg r) (Reg r)] 
+  [(Reg r) (Reg r)]
+  [(Jmp j) (Jmp j)]
+  [(Callq name arity) (Callq name arity)]   
   [else (error "assign-homes unhandled case" e)]
   )
 )
@@ -328,7 +332,7 @@
      (Instr 'pushq (list (Reg 'rbp)))
      (Instr 'movq  (list (Reg 'rsp) (Reg 'rbp)))
      (Instr 'subq  (list (Imm (dict-ref info 'stack-space)) (Reg 'rsp)))
-     (Instr 'jmp   (list 'start))
+     (Jmp 'start)
    )
  )
 
@@ -336,15 +340,14 @@
   (list
      (Instr 'addq  (list (Imm (dict-ref info 'stack-space)) (Reg 'rsp)))
      (Instr 'popq  (list (Reg 'rbp)))
-     (Instr 'retq  '())
+     (Retq)
    )
  )
 
-(define (create-start instrs)
+(define (create-start instrs) instrs
   (append 
      instrs
-     (list (Instr 'jmp (list 'conclusion)))   
-))
+     (list (Jmp 'conclusion))))
 
 (define (prelude-and-conclusion p)
 (match p
@@ -352,7 +355,7 @@
      (X86Program info
                  (list
                    (cons 'start
-                        (Block '() (create-start (Block-instr* (dict-ref body 'start)))))
+                        (Block '() (Block-instr* (dict-ref body 'start))))
                    (cons 'main
                         (Block '() (create-main info)))
                    (cons 'conclusion
@@ -364,6 +367,7 @@
 ;; must be named "compiler.rkt"
 (define compiler-passes
   `(
+      ("particaly eval", pe-Lint, interp_Lvar, type-check-Lvar)
       ("uniquify" ,uniquify ,interp_Lvar ,type-check-Lvar)
       ("remove complex operand" ,remove-complex-operand ,interp_Lvar ,type-check-Lvar)
       ("explicate control" ,explicate-control ,interp-Cvar ,type-check-Cvar)
