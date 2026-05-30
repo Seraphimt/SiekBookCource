@@ -8,6 +8,8 @@
 (require "type-check-Lvar.rkt")
 (require "type-check-Cvar.rkt")
 (require "utilities.rkt")
+(require "registers-alloc.rkt")
+
 (provide (all-defined-out))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -231,7 +233,7 @@
 
     [(Assign var (Prim 'read '())) (list (Callq 'read_int 0) (Instr 'movq (list (Reg 'rax) var)))]
     
-    [(Assign var (Var x)) (list (Instr 'movq (list x var)))]
+    [(Assign var (Var x)) (list (Instr 'movq (list (Var x) var)))]
     [(Assign var (Int n)) (list (Instr 'movq (list (Imm n) var)))]
     
     
@@ -382,9 +384,12 @@
       ("remove complex operand" ,remove-complex-operand ,interp_Lvar ,type-check-Lvar)
       ("explicate control" ,explicate-control ,interp-Cvar ,type-check-Cvar)
       ("instruction selection" ,select-instructions ,interp-pseudo-x86-0)
+      ("uncover-live", uncover-live-pass ,interp-x86-0)
+      ("build-interference", build-interference-pass ,interp-x86-0) 
       ("assign homes" ,assign-homes ,interp-x86-0)
       ("patch instructions" ,patch-instructions ,interp-x86-0)
       ("prelude-and-conclusion" ,prelude-and-conclusion ,interp-x86-0)
+    ;  ("uncover-live", uncover-live-pass ,interp-x86-0)
      ))
 
 ;(print-x86

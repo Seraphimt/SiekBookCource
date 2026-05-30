@@ -8,6 +8,8 @@
 (require "type-check-Lvar.rkt")
 (require "type-check-Cvar.rkt")
 (require "utilities.rkt")
+(require "registers-alloc.rkt")
+
 (provide (all-defined-out))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -33,11 +35,21 @@
 (define (pe-neg r)
   (match r
     [(Int n) (Int (fx- 0 n))]
+    [(Prim '+ (list (Int n) rhs)) ((Prim '+ (list (Int (fx- 0 n)) rhs)))]
     [else (Prim '- (list r))]))
 
 (define (pe-add r1 r2)
   (match* (r1 r2)
-    [((Int n1) (Int n2)) (Int (fx+ n1 n2))]
+    [((Int n1) (Int n2))   (Int (fx+ n1 n2))]
+    [((Int n1) (Prim '+ (list (Int n2) rhs)))   (Prim '+ (list (Int (fx+ n1 n2)) rhs))]
+    [((Int n1) _)   (Prim '+ (list (Int n1) r2))]
+
+    [((Prim '+ (list (Int n1) rhs))(Int n2))  (Prim '+ (list (Int (fx+ n1 n2)) rhs))]
+    [((Prim '+ (list (Int n1) rhs1))    (Prim '+ (list (Int n2) rhs2))) (Prim '+ (list (Int (fx+ n1 n2)) (Prim '+ (list rhs1 rhs2))))] 
+    [((Prim '+ (list (Int n1) rhs1)) _) (Prim '+ (list (Int n1)) (Prim '+ (list rhs1 r2)))]
+
+    [(_ (Int n1))  (Prim '+ (list (Int n1) r1))]
+    [(_ (Prim '+ (list (Int n1) rhs)))  (Prim '+ (list (Int n1) (Prim '+ (list r1 rhs))))]
     [(_ _) (Prim '+ (list r1 r2))]))
 
 (define (pe-exp e)
@@ -221,7 +233,7 @@
 
     [(Assign var (Prim 'read '())) (list (Callq 'read_int 0) (Instr 'movq (list (Reg 'rax) var)))]
     
-    [(Assign var (Var x)) (list (Instr 'movq (list x var)))]
+    [(Assign var (Var x)) (list (Instr 'movq (list (Var x) var)))]
     [(Assign var (Int n)) (list (Instr 'movq (list (Imm n) var)))]
     
     
@@ -372,9 +384,11 @@
       ("remove complex operand" ,remove-complex-operand ,interp_Lvar ,type-check-Lvar)
       ("explicate control" ,explicate-control ,interp-Cvar ,type-check-Cvar)
       ("instruction selection" ,select-instructions ,interp-pseudo-x86-0)
+      ("uncover-live", uncover-live-pass ,interp-x86-0)
       ("assign homes" ,assign-homes ,interp-x86-0)
       ("patch instructions" ,patch-instructions ,interp-x86-0)
       ("prelude-and-conclusion" ,prelude-and-conclusion ,interp-x86-0)
+    ;  ("uncover-live", uncover-live-pass ,interp-x86-0)
      ))
 
 ;(print-x86
