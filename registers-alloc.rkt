@@ -34,36 +34,35 @@
     [(Instr 'movq (list (? Imm? lhs) rhs)) (set)]
     [(Instr 'movq (list lhs rhs)) (set lhs)]
     [(Callq name arity)           (callee-save-for-alloc)]
-    [(Jmp target)                 (set (Reg 'rax) (Reg 'rsp))]
+    [(Jmp target)                 (set)];(set (Reg 'rax) (Reg 'rsp))]
    ))
 
-;acum = curr set + list of all set 
+;acum = list of all set 
 (define (calc-post-set instr accum)
   (let ([curr-set
           (set-union (set-subtract (car accum) (loc-write instr)) (loc-read instr))])
-      (cons
-       curr-set
-       (cons
-          curr-set
-          (cdr accum)
-       ))))
+       (cons curr-set accum
+       )))
+
 ;output - list of liveness set 
 (define (live-post-set instrs begin-set)
   (foldr
         calc-post-set
-        (list begin-set '())
+        (list begin-set)
         instrs))
-
-;bad but remove first and last set in list
-(define (remove-first-last live-list)
-  (reverse (cdr (reverse (cdr live-list)))))
 
 (define (uncover-live-pass p)
   (match p
    [(X86Program info body)
      (X86Program
-      (dict-set info 'live-set (remove-first-last(live-post-set (Block-instr* (dict-ref body 'start)) (set))))
+      (dict-set info 'live-set (cdr (live-post-set (Block-instr* (dict-ref body 'start)) (set))))
       body)]))
+
+(define (uncover-live-pass-test p)
+  (match p
+   [(X86Program info body)
+     (cdr (live-post-set (Block-instr* (dict-ref body 'start)) (set)))]))
+
                 #|  (list
                       (cons 'start
                            (Block '() (Block-instr* (dict-ref body 'start))))
@@ -72,6 +71,77 @@
                       (cons 'conclusion
                            (Block '() (create-conclusion info)))
                   ))])) |#
+
+;-------------------------------------------------------------------------
+(define test-liveness-0 
+(list
+  (Instr' movq (list (Imm 42) (Reg 'rax)))
+  (Jmp 'conclusion)))
+
+(define etalon-liveness-0 
+(list
+  (set) ;from jmp
+  (set) ;from start base
+))
+;-------------------------------------------------------------------------
+(define test-liveness-1 
+(list     
+  (Instr 'movq (list (Imm 24) (Var 'a)))
+  (Instr 'movq (list (Imm 18) (Var 'b)))
+  (Instr 'addq (list (Var 'a) (Var 'b)))
+  (Instr' movq (list (Var 'b) (Reg 'rax)))
+  (Jmp 'conclusion)))
+
+(define etalon-liveness-1 
+(list
+  (set (Var 'a))
+  (set (Var 'a) (Var 'b))
+  (set (Var 'b))
+  (set) ;from jmp
+  (set) ;from start base
+))
+;-------------------------------------------------------------------------
+(define (create-test-case instrs)
+  (X86Program 
+  '() 
+  (list (cons 
+    'start 
+    (Block '() instrs
+      )))))
+
+(define test-suit-liveness
+  (list 
+    (create-test-case test-liveness-0)
+    (create-test-case test-liveness-1)
+  ))
+  
+(define etalon-suit-liveness
+  (list 
+    etalon-liveness-0
+    etalon-liveness-1
+  ))
+
+(define test-No ;temp
+  (list 
+    1
+    2
+  ))
+;-------------------------------------------------------------------------
+(define (check-live test-suit etalon-suit)
+(map 
+  (lambda (test etalon No)
+    (let ([test (uncover-live-pass-test test)])
+       (println No)
+       (if (andmap equal? etalon test) (println "passed") (begin (println "fail") (print "etalon:") (println etalon) (print "test  :") (println test)))))
+  test-suit
+  etalon-suit
+  test-No
+))
+
+
+(check-live test-suit-liveness etalon-suit-liveness)
+
+
 
 ;------------------------------------------------------------------
 ;------------------------------------------------------------------
@@ -174,6 +244,6 @@
 ; set index into max and set this index into neighbors
 ; repeat
 
-(define g (undirected-graph '((a b) (b c) (c d))))
-(get-edges g)
-(color-graph g '(a b c d))
+;(define g (undirected-graph '((a b) (b c) (c d))))
+;(get-edges g)
+;(color-graph g '(a b c d))
