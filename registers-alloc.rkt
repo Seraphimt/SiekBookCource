@@ -70,7 +70,7 @@
 (define (uncover-live-pass-test p)
   (match p
    [(X86Program info body)
-     (live-post-set (Block-instr* (dict-ref body 'start)) (set))])
+     (live-post-set (Block-instr* (dict-ref body 'start)) (set))]))
 
 ;------------------------------------------------------------------
 ;------------------------------------------------------------------
