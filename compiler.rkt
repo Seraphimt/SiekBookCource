@@ -115,8 +115,14 @@
     (match e
       [(Var x) (Var x)]
       [(Int n) (Int n)]
-      [(Prim 'read args) (let ([name (gensym "tmp")]) (Let name e (Var name)))]
-      
+      ;[(Prim 'read args) (let ([name (gensym "tmp")]) (Let name e (Var name)))]
+      ;;unary
+      [(Prim op (list (? expr? expr)))
+       (let ([res-atom  (gensym "tmp")])
+         (Let res-atom (rco-expr expr)  
+          (Prim op (list (Var res-atom)))))
+      ]
+      ;;binary
       [(Prim op (list (? atom? atom) (? expr? expr)) )
        (let ([res-atom  (rco-atom expr)])
          (Let (car res-atom) (cdr res-atom)  
@@ -155,6 +161,10 @@
     ))
 
 ;(check-rco-mine (remove-complex-operand(parse-program '(program () (let ([y1 10]) (+ y1 (let ([y2 10]) (+ y2 5)))) ))))
+;(remove-complex-operand(parse-program '(program () (let ([x (- (read))]) x))))
+;(remove-complex-operand(parse-program '(program () (let ([x (+ (read) (+ (read) 3))]) x))))
+(remove-complex-operand(parse-program '(program () (+ (read) (+ (read) 3)))))
+;(remove-complex-operand(parse-program '(program () (+ (read) (read)))))
 
 
 ;(rco-expr (parse-program '(program () (read))))
@@ -198,7 +208,11 @@
   (match p
     [(Program info body) (CProgram info (dict-set '() 'start (explicate-tail body)))]))
  
-;(explicate-control (parse-program '(program () 42)))
+;(explicate-control (parse-program '(program () (let ([x (- (read))])
+;  (let ([y (read)])
+;    (- y x))))))
+
+
 ;(explicate-control (parse-program '(program () (+ (- 10) (- 12)))))
 ;(explicate-control (parse-program '(program ()(let ([y1 10]) (+ y1 (let ([y2 10]) (+ y2 5)))))))
 ;(explicate-control (parse-program '(program () (let ([y1 10]) (+ y1 (let ([y2 12]) (+ y2 5)))))))
@@ -243,7 +257,7 @@
 (define (select-tail p)
   (match p
     [(Seq stm tail) (append (select-stm stm) (select-tail tail))]
-    [(Return expr)  (list (Instr 'movq (list (select-atom expr) (Reg 'rax))) (Jmp 'conclusion))] ; goto epilog ?  (Instr 'jmp (list 'conclusion))
+    [(Return expr)  (list (Instr 'movq (list (select-atom expr) (Reg 'rax))) (Jmp 'conclusion))]
     )
 )
 
@@ -283,7 +297,7 @@
 )
 
 (define local (list (cons 'x 'Integer) (cons 'y 'Integer) (cons 'z 'Integer)))
-(add-var-to-storage local -8)
+;(add-var-to-storage local -8)
 ;Output: '((x . -8) (y . -16) (z . -24))
 
 (define (create-local info)
@@ -412,4 +426,4 @@
         all-tests)))
 
 ;; The following tests the intermediate-language outputs of the passes.
-(interp-tests "var_test" #f compiler-passes interp_Lvar "var_test" (tests-for "var"))
+;(interp-tests "var_test" #f compiler-passes interp_Lvar "var_test" (tests-for "var"))

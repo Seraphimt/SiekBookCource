@@ -1,4 +1,3 @@
 (let ([x (- (read))])
-  (let ([y (read)]))
-    (- y x)
-)
+  (let ([y (read)])
+    (- y x)))
