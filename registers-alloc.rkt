@@ -74,39 +74,38 @@
 
 ;------------------------------------------------------------------
 ;------------------------------------------------------------------
-
-;Build overlap graph for not movq instr
-;output - pair overlap vertices
-(define (add-edge list-write-loc list-live-loc)
-  (for*/list ([w-loc list-write-loc]
-              [live-loc list-live-loc]
-             #:when (not (equal? live-loc w-loc)))
-           (cons live-loc w-loc))
-)
-
-(define (not-imm? value)
-  (not (Imm? value)))
+;1. If instruction I_k is a move such as movq s, d, then add the edge (d, v) for every v ∈ L_after(k) unless v = d or v = s.
+;2. For any other instruction I_k, for every d ∈ W(k) add an edge (d, v)
+;for every v ∈ L_after(k) unless v = d.
 
 ;output - list of pair overlap vertices
 (define (check-interference live-set instr)
   (match instr
-    [(Instr 'movq (list (? not-imm? lhs) rhs))
+    [(Instr 'movq (list lhs rhs))
             (for/list ([live (set->list live-set)])
-              (if (and (not (equal? live lhs)) (not (equal? live rhs)))
-                    (cons rhs live)
-                    '()))]
-    [else (add-edge (loc-write instr) live-set)]
+                #:when (and (not (equal? live lhs)) (not (equal? live rhs)))
+              (cons rhs live))]
+    [else 
+          (for*/list 
+             ([w-loc    (loc-write instr)]
+              [live-loc live-set]
+              #:when (not (equal? live-loc w-loc)))
+           (cons live-loc w-loc))]
  ))
-
-(define (build-interference live-set-list instrs)
-   (map check-interference live-set-list instrs))
 
 (define (build-interference-pass p)
   (match p
    [(X86Program info body)
-     (X86Program  (dict-set info 'conflicts #|(undirected-graph|# (build-interference (dict-ref info 'live-set) (Block-instr* (dict-ref body 'start))))
-                  ;)
-      body)]))
+     (X86Program  
+       (dict-set info 'conflicts (undirected-graph 
+                                   (map check-interference 
+                                        (dict-ref info 'live-set) 
+                                        (Block-instr* (dict-ref body 'start)))))
+       body)]))
+
+(define (get-conflicts p)
+  (match p
+   [(X86Program info body) (dict-ref info 'conflicts)]))
 
 (define (reg? p)
   (match p
