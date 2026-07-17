@@ -103,9 +103,9 @@
                                         (Block-instr* (dict-ref body 'start)))))
        body)]))
 
-(define (get-conflicts p)
+(define (get-key-info p key)
   (match p
-   [(X86Program info body) (dict-ref info 'conflicts)]))
+   [(X86Program info body) (dict-ref info key)]))
 
 (define (reg? p)
   (match p
