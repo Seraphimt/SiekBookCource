@@ -7,6 +7,7 @@
 (provide uncover-live-pass)
 (provide uncover-live-pass-test)
 (provide build-interference-pass)
+(provide get-key-info)
 
 (define (Imm? e)
   (match e
@@ -78,12 +79,12 @@
 ;2. For any other instruction I_k, for every d ∈ W(k) add an edge (d, v)
 ;for every v ∈ L_after(k) unless v = d.
 
-;output - list of pair overlap vertices
+;output - list of pair overlap verticess
 (define (check-interference live-set instr)
   (match instr
     [(Instr 'movq (list lhs rhs))
-            (for/list ([live (set->list live-set)])
-                #:when (and (not (equal? live lhs)) (not (equal? live rhs)))
+            (for/list ([live (set->list live-set)]
+                #:when (and (not (equal? live lhs)) (not (equal? live rhs))))
               (cons rhs live))]
     [else 
           (for*/list 
@@ -96,17 +97,18 @@
 (define (build-interference-pass p)
   (match p
    [(X86Program info body)
+     (let ([graph (map check-interference 
+                       (dict-ref info 'live-set) 
+                       (Block-instr* (dict-ref body 'start)))])
      (X86Program  
-       (dict-set info 'conflicts (undirected-graph 
-                                   (map check-interference 
-                                        (dict-ref info 'live-set) 
-                                        (Block-instr* (dict-ref body 'start)))))
-       body)]))
+       (dict-set info 'conflicts (undirected-graph (list 0 1)));(if (equal? graph '()) (undirected-graph (list 0 1)) (undirected-graph graph)))
+       body))]
+))
 
 (define (get-key-info p key)
   (match p
    [(X86Program info body) (dict-ref info key)]))
-
+;;-----------------------------------------------------------------------------------------------------------------------------
 (define (reg? p)
   (match p
    ; [(Reg name) #t]

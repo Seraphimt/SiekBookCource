@@ -16,11 +16,9 @@
   (list
     (set) ;from jmp
     (set) ;from start base
-  )
-  (undirected-graph
-  '()
-  )
-)
+ )
+ (undirected-graph (list 0 1))
+))
 ;------------------------------------------------------------------------------
 (define test-alloc-1 
 (list     
@@ -38,11 +36,9 @@
     (set (Var 'b))
     (set) ;from jmp
     (set) ;from start base
-  )
-  (undirected-graph
-  '()
-  )
-)
+  ) 
+ (undirected-graph (list 0 1)) 
+))
 ;-------------------------------------------------------------------------
 (define test-alloc-2 
 (list     
@@ -61,10 +57,8 @@
     (set) ;from jmp
     (set) ;from start base
   )
-  (undirected-graph
-  '()
-  )
-)
+ (undirected-graph '(0 1))
+))
 ;-------------------------------------------------------------------------
 (define test-alloc-3 
 (list     
@@ -83,10 +77,8 @@
     (set) ;from jmp
     (set) ;from start base
   )
-  (undirected-graph
-  '()
-  )
-)
+ (undirected-graph '(0 1)) 
+))
 ;-------------------------------------------------------------------------
 (define test-alloc-4 
 (list     
@@ -99,16 +91,14 @@
 (define etalon-alloc-4 
 (list
   (list
-    (set)
-    (set (Var 'b))
+    (set (Var 'a))
+    (set (Var 'a))
     (set (Var 'b))
     (set) ;from jmp
     (set) ;from start base
   )
-  (undirected-graph
-  '()
-  )
-)
+ (undirected-graph '(0 1)) 
+))
 ;-------------------------------------------------------------------------
 (define test-alloc-5 
 (list     
@@ -121,16 +111,14 @@
 (define etalon-alloc-5
 (list
   (list
-    (set)
-    (set (Var 'b))
+    (set (Var 'a))
+    (set (Var 'a))
     (set (Var 'b))
     (set) ;from jmp
     (set) ;from start base
    )
-   (undirected-graph
-     '()
-   )
-)
+ (undirected-graph '(0 1)) 
+))
 ;-------------------------------------------------------------------------
 (define (create-test-case instrs)
   (X86Program 
@@ -139,98 +127,34 @@
     'start 
     (Block '() instrs
       )))))
-
-(define test-suit-liveness
-  (list 
-    (create-test-case test-liveness-0)
-    (create-test-case test-liveness-1)
-    (create-test-case test-liveness-2)
-    (create-test-case test-liveness-3)
-    (create-test-case test-liveness-4)
-    (create-test-case test-liveness-5)
-  ))
   
-(define etalon-suit-liveness
-  (list 
-    etalon-liveness-0
-    etalon-liveness-1
-    etalon-liveness-2
-    etalon-liveness-3
-    etalon-liveness-4
-    etalon-liveness-5
-  ))
-
-(define test-No ;temp
-  (list 
-    0
-    1
-    2
-    3
-    4
-    5
-  ))
-;-------------------------------------------------------------------------
-(define (check-live test-suit etalon-suit)
-(map 
-  (lambda (test etalon No)
-    (let ([test (uncover-live-pass-test test)])
-       (println No)
-       (if (andmap equal? etalon test) 
-           (println "passed") 
-           (begin (println "fail") (print "etalon:") (println etalon) (print "test  :") (println test)))))
-  test-suit
-  etalon-suit
-  test-No
-))
-
-
-;(check-live test-suit-liveness etalon-suit-liveness)
-
-;----overlap-graph-build-------------------------------------------------------
-;----tests---------------------------------------------------------------------
-
-;-------------------------------------------------------------------------
-(define (check-graph test-suit etalon-suit)
-(map 
-  (lambda (test etalon No)
-    (let ([test (get-conflicts(build-interference-pass(uncover-live-pass test)))])
-       (println No)
-       (if (andmap equal? etalon test) 
-           (println "passed") 
-           (begin (println "fail") (print "etalon:") (println etalon) (print "test  :") (println test)))))
-  test-suit
-  etalon-suit
-  test-No
-))
-
-;-------------------------------------------------------------------------
-
 (define test-suit-alloc
   (list 
-    (create-test-case test-liveness-0)
-    (create-test-case test-liveness-1)
-    (create-test-case test-liveness-2)
-    (create-test-case test-liveness-3)
-    (create-test-case test-liveness-4)
-    (create-test-case test-liveness-5)
+    (create-test-case test-alloc-0)
+    (create-test-case test-alloc-1)
+    (create-test-case test-alloc-2)
+    (create-test-case test-alloc-3)
+    (create-test-case test-alloc-4)
+    (create-test-case test-alloc-5)
   ))
 
-(define (common-checker test etalon comparator id)
-(begin     
-  (println id)
+(define (common-checker test etalon comparator name)
+(begin
+  (display name)
+  (display ":")
   (if (comparator etalon test) 
-      (begin (println "passed") #t)
-      (begin (println "fail") (print "etalon:") (println etalon) (print "test  :") (println test) #f))
+      (begin (displayln " passed") #t)
+      (begin (displayln " fail") (display "etalon:") (println etalon) (display "test  :") (println test) #f))
 ))
 
-(define (liveness-checker program etalon id)
+(define (liveness-checker program etalon)
 (
-  common-checker (get-key-info program 'live-set) etalon equal? id
+  common-checker (get-key-info program 'live-set) etalon equal? "build liveness"
 ))
 
-(define (graph-conflicts-checker program etalon id)
+(define (graph-conflicts-checker program etalon)
 (
-  common-checker (get-key-info program 'conflicts) etalon equal? id
+  common-checker (get-key-info program 'conflicts) etalon equal? "build conflicts"
 ))
 
 
@@ -256,26 +180,25 @@
     etalon-alloc-5
 ))
 
-(define (check-one test passes checkers etalons id)
+(define (check-one test passes checkers etalons)
 (
-let ([transform-test ((car passes) test)]) ;apply
-  (if ((car checkers) transform-test (car etalons) id) 
+if (empty? passes)
+(values)   
+(let ([transform-test ((car passes) test)])
+  (if ((car checkers) transform-test (car etalons)) 
       (check-one transform-test (cdr passes) (cdr checkers) (cdr etalons))
       (values)) ; (void)
+)))
+
+(define (check tests passes checkers etalons)
+(
+  for ([test tests]
+       [etalon-for-id etalons]
+       [id (in-range (length tests))])
+     (displayln id)
+     (check-one test passes checkers etalon-for-id) 
 ))
 
-(define (check tests passes checkers)
-(
-  for* ([test tests]
-        [id (in-range 5)]) 
-       (check-one test passes checkers id))
-)
+(check test-suit-alloc passes-alloc checkers-alloc etallon-alloc)
 
-(check test-suit-alloc passes-alloc checkers-alloc)
-
-
-;data -> pass1 -> check1 -> (if correct) -> pass2 -> check2 -> ...
-; (list test etalon No)
-;test (list etalons)
-; 
-;negative test
+;add negative test

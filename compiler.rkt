@@ -106,6 +106,8 @@
 
 (define (rco-atom e)
     (match e
+      [(Var _) (cons  '() e)]
+      [(Int _) (cons  '() e)]
       [(Prim op args)  (cons  (gensym "tmp") (rco-expr e)) ]
       [(Let x y z) (cons  (gensym "tmp") (rco-expr e)) ]
       [else (rco-expr e)]
@@ -426,4 +428,4 @@
         all-tests)))
 
 ;; The following tests the intermediate-language outputs of the passes.
-;(interp-tests "var_test" #f compiler-passes interp_Lvar "var_test" (tests-for "var"))
+(interp-tests "var_test" #f compiler-passes interp_Lvar "var_test" (tests-for "var"))
