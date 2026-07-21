@@ -16,8 +16,9 @@
   (list
     (set) ;from jmp
     (set) ;from start base
- )
+   )
  (undirected-graph (list 0 1))
+ '()
 ))
 ;------------------------------------------------------------------------------
 (define test-alloc-1 
@@ -37,7 +38,11 @@
     (set) ;from jmp
     (set) ;from start base
   ) 
- (undirected-graph (list 0 1)) 
+  (undirected-graph (list (cons (Var 'a) (Var 'b))))
+  (list
+    (cons 'a 0)
+    (cons 'b 1)
+  )
 ))
 ;-------------------------------------------------------------------------
 (define test-alloc-2 
@@ -57,7 +62,7 @@
     (set) ;from jmp
     (set) ;from start base
   )
- (undirected-graph '(0 1))
+  (undirected-graph (list (cons (Var 'a) (Var 'b))))
 ))
 ;-------------------------------------------------------------------------
 (define test-alloc-3 
@@ -77,7 +82,7 @@
     (set) ;from jmp
     (set) ;from start base
   )
- (undirected-graph '(0 1)) 
+  (undirected-graph '(0 1)) 
 ))
 ;-------------------------------------------------------------------------
 (define test-alloc-4 
@@ -97,7 +102,7 @@
     (set) ;from jmp
     (set) ;from start base
   )
- (undirected-graph '(0 1)) 
+  (undirected-graph '(0 1)) 
 ))
 ;-------------------------------------------------------------------------
 (define test-alloc-5 
@@ -121,8 +126,8 @@
     (set (Var 't))
     (set) ;from jmp
     (set) ;from start base
-   )
- (undirected-graph (list (cons (Var 'a) (Var 'b)))) 
+  )
+  (undirected-graph (list (cons (Var 'a) (Var 'b)))) 
 ))
 ;-------------------------------------------------------------------------
 (define test-alloc-6 

@@ -111,8 +111,7 @@
 ;;-----------------------------------------------------------------------------------------------------------------------------
 (define (reg? p)
   (match p
-   ; [(Reg name) #t]
-    ['b #t]
+    [(Reg name) #t]
     [else #f]))
 
 (define (var? p)
@@ -124,23 +123,24 @@
   (lambda var
     (apply f graph var)))
 
-(define (reg->int reg)
-  -1)
+(define (reg->int reg) -1)
 
 (define (create-satur-base graph var)
   (list var -1 (map
                 reg->int
-                (filter reg?
-                       (sequence->list (in-neighbors graph var))))))
+                (filter reg? (sequence->list (in-neighbors graph var)))
+)))
 
 ;input: element = (name, int, list of int)
 ;output:
 (define (find-max e accum)
   (cond
-    [(not (equal? -1 (second e))) accum]
+    [(< 0 (second e))) accum]
     [(empty? accum) e]
     [(> (length (third accum)) (length(third e))) accum]
     [else e]))
+;(foldl find-max '() satur-list)
+
 
 ;input element, max element, list of neighbors of max element
 (define (dsatur-pass elt max-elt neighbors-of-max)
@@ -169,11 +169,7 @@
                   (sequence->list (in-neighbors graph (car max-satur))))
         satur-list)   
    ))
-; find max
+; find max satur
 ; find empty index
 ; set index into max and set this index into neighbors
 ; repeat
-
-;(define g (undirected-graph '((a b) (b c) (c d))))
-;(get-edges g)
-;(color-graph g '(a b c d))
