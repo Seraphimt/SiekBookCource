@@ -102,22 +102,58 @@
 ;-------------------------------------------------------------------------
 (define test-alloc-5 
 (list     
-  (Instr 'movq (list (Imm 42) (Var 'a)))
-  (Instr 'movq (list (Imm 10) (Var 'b)))
-  (Instr 'movq (list (Var 'a) (Var 'b)))
-  (Instr 'movq (list (Var 'b) (Reg 'rax)))
+  (Instr 'movq (list (Imm 32)   (Var 'a)))
+  (Instr 'movq (list (Imm 10)   (Var 'b)))
+  (Instr 'movq (list (Var 'a)   (Reg 'rax)))
+  (Instr 'movq (list (Reg 'rax) (Var 't) ))
+  (Instr 'movq (list (Var 'b)   (Reg 'rax)))
+  (Instr 'addq (list (Reg 'rax) (Var 't)))
+  (Instr 'movq (list (Var 't)   (Reg 'rax)))
   (Jmp 'conclusion)))
-
+  
 (define etalon-alloc-5
 (list
   (list
     (set (Var 'a))
-    (set (Var 'a))
+    (set (Var 'a) (Var 'b))
     (set (Var 'b))
+    (set (Var 't))
+    (set (Var 't))
     (set) ;from jmp
     (set) ;from start base
    )
- (undirected-graph '(0 1)) 
+ (undirected-graph (list (cons (Var 'a) (Var 'b)))) 
+))
+;-------------------------------------------------------------------------
+(define test-alloc-6 
+(list     
+  (Instr 'movq (list (Imm 20) (Var 'b)))
+  (Instr 'movq (list (Imm 1)  (Var 'a)))
+  (Instr 'addq (list (Var 'b) (Var 'a)))
+  (Instr 'movq (list (Imm 21) (Var 'c)))
+  (Instr 'movq (list (Var 'a) (Var 't)))
+  (Instr 'addq (list (Var 'c) (Var 't)))
+  (Instr 'movq (list (Var 't) (Reg 'rax)))
+  (Jmp 'conclusion)))
+  
+(define etalon-alloc-6
+(list
+  (list
+    (set (Var 'b))
+    (set (Var 'a) (Var 'b))
+    (set (Var 'a))
+    (set (Var 'a) (Var 'c))
+    (set (Var 'c) (Var 't))
+    (set (Var 't))
+    (set) ;from jmp
+    (set) ;from start base
+   )
+ (undirected-graph 
+   (list 
+     (cons (Var 'a) (Var 'b))
+     (cons (Var 'a) (Var 'c))
+     (cons (Var 'c) (Var 't))
+    )) 
 ))
 ;-------------------------------------------------------------------------
 (define (create-test-case instrs)
@@ -136,27 +172,38 @@
     (create-test-case test-alloc-3)
     (create-test-case test-alloc-4)
     (create-test-case test-alloc-5)
+    (create-test-case test-alloc-6)
   ))
-
-(define (common-checker test etalon comparator name)
+  
+(define etallon-alloc 
+  (list 
+    etalon-alloc-0
+    etalon-alloc-1
+    etalon-alloc-2
+    etalon-alloc-3
+    etalon-alloc-4
+    etalon-alloc-5
+    etalon-alloc-6
+))
+;; add negative test ?
+(define (common-checker test etalon name)
 (begin
   (display name)
   (display ":")
-  (if (comparator etalon test) 
+  (if (equal? etalon test) 
       (begin (displayln " passed") #t)
       (begin (displayln " fail") (display "etalon:") (println etalon) (display "test  :") (println test) #f))
 ))
 
 (define (liveness-checker program etalon)
 (
-  common-checker (get-key-info program 'live-set) etalon equal? "build liveness"
+  common-checker (get-key-info program 'live-set) etalon "build liveness"
 ))
 
 (define (graph-conflicts-checker program etalon)
 (
-  common-checker (get-key-info program 'conflicts) etalon equal? "build conflicts"
+  common-checker (get-key-info program 'conflicts) etalon "build conflicts"
 ))
-
 
 (define passes-alloc 
   (list 
@@ -168,16 +215,6 @@
   (list 
   liveness-checker
   graph-conflicts-checker
-))
-
-(define etallon-alloc 
-  (list 
-    etalon-alloc-0
-    etalon-alloc-1
-    etalon-alloc-2
-    etalon-alloc-3
-    etalon-alloc-4
-    etalon-alloc-5
 ))
 
 (define (check-one test passes checkers etalons)
@@ -201,4 +238,4 @@ if (empty? passes)
 
 (check test-suit-alloc passes-alloc checkers-alloc etallon-alloc)
 
-;add negative test
+
