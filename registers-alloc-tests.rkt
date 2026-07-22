@@ -18,7 +18,7 @@
     (set) ;from start base
    )
  (undirected-graph (list 0 1))
- '()
+ ;'()
 ))
 ;------------------------------------------------------------------------------
 (define test-alloc-1 
@@ -38,11 +38,11 @@
     (set) ;from jmp
     (set) ;from start base
   ) 
-  (undirected-graph (list (cons (Var 'a) (Var 'b))))
-  (list
-    (cons 'a 0)
-    (cons 'b 1)
-  )
+  (undirected-graph (list (cons (Var 'b) (Var 'a))))
+ ; (list
+   ; (cons 'a 0)
+  ;  (cons 'b 1)
+ ; )
 ))
 ;-------------------------------------------------------------------------
 (define test-alloc-2 
@@ -62,7 +62,7 @@
     (set) ;from jmp
     (set) ;from start base
   )
-  (undirected-graph (list (cons (Var 'a) (Var 'b))))
+  (undirected-graph (list (cons (Var 'b) (Var 'a))))
 ))
 ;-------------------------------------------------------------------------
 (define test-alloc-3 
@@ -191,23 +191,23 @@
     etalon-alloc-6
 ))
 ;; add negative test ?
-(define (common-checker test etalon name)
+(define (common-checker test etalon name shower)
 (begin
   (display name)
   (display ":")
   (if (equal? etalon test) 
       (begin (displayln " passed") #t)
-      (begin (displayln " fail") (display "etalon:") (println etalon) (display "test  :") (println test) #f))
+      (begin (displayln " fail") (display "etalon:") (println (shower etalon)) (display "test  :") (println  (shower test)) #f))
 ))
 
 (define (liveness-checker program etalon)
 (
-  common-checker (get-key-info program 'live-set) etalon "build liveness"
+  common-checker (get-key-info program 'live-set) etalon "build liveness" identity
 ))
 
 (define (graph-conflicts-checker program etalon)
 (
-  common-checker (get-key-info program 'conflicts) etalon "build conflicts"
+  common-checker (get-key-info program 'conflicts) etalon "build conflicts" get-vertices
 ))
 
 (define passes-alloc 

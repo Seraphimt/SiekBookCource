@@ -87,21 +87,31 @@
                 #:when (and (not (equal? live lhs)) (not (equal? live rhs))))
               (cons rhs live))]
     [else 
-          (for*/list 
+          (for*/list
              ([w-loc    (loc-write instr)]
               [live-loc live-set]
               #:when (not (equal? live-loc w-loc)))
            (cons live-loc w-loc))]
  ))
 
+(define (add-interference live-set instr accum)
+  (let ([elt (check-interference live-set instr)])
+    (if (not (equal? elt '()))
+             (append accum elt)
+             accum
+)))
+
+
 (define (build-interference-pass p)
   (match p
    [(X86Program info body)
-     (let ([graph (map check-interference 
-                       (dict-ref info 'live-set) 
-                       (Block-instr* (dict-ref body 'start)))])
+     (let ([graph (foldr add-interference '()
+                    ;(lambda (x) (not (equal? x '())))
+                    ;(map check-interference 
+                         (dict-ref info 'live-set) 
+                         (Block-instr* (dict-ref body 'start)))])
      (X86Program  
-       (dict-set info 'conflicts (undirected-graph (list 0 1)));(if (equal? graph '()) (undirected-graph (list 0 1)) (undirected-graph graph)))
+       (dict-set info 'conflicts (undirected-graph (if (equal? graph '()) (list 0 1) graph)))
        body))]
 ))
 
@@ -135,7 +145,7 @@
 ;output:
 (define (find-max e accum)
   (cond
-    [(< 0 (second e))) accum]
+    [(< 0 (second e)) accum]
     [(empty? accum) e]
     [(> (length (third accum)) (length(third e))) accum]
     [else e]))
